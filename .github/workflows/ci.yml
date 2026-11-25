@@ -50,7 +50,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Build image
-        run: docker build -t incident-service:${{ github.sha }} .
+        # Retries because Maven Central occasionally rate-limits shared CI runners (HTTP 429)
+        run: |
+          for attempt in 1 2 3; do
+            docker build -t incident-service:${{ github.sha }} . && exit 0
+            echo "Build attempt $attempt failed; retrying in 30s"; sleep 30
+          done
+          exit 1
 
   load-test:
     name: Load test (50 events/sec)
