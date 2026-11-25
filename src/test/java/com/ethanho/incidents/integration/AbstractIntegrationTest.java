@@ -1,5 +1,6 @@
 package com.ethanho.incidents.integration;
 
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,8 @@ import org.testcontainers.containers.RabbitMQContainer;
  * <p>Run with {@code -Dit.external=true} to use MySQL/RabbitMQ already running on localhost instead,
  * e.g. ones started with {@code docker compose up mysql rabbitmq}.
  */
+// Spring Boot switches metrics exporters off in tests by default; we want /actuator/prometheus
+@AutoConfigureObservability
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(AbstractIntegrationTest.TestGatewayConfig.class)
 public abstract class AbstractIntegrationTest {
