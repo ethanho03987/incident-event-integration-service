@@ -1,0 +1,79 @@
+# Every value can be overridden with an environment variable, e.g. DB_HOST=mysql.
+# ${NAME:default} means "use env var NAME, or the default if it isn't set".
+
+spring:
+  application:
+    name: incident-event-integration-service
+
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:incidents}?createDatabaseIfNotExist=true
+    username: ${DB_USER:incident}
+    password: ${DB_PASSWORD:incident}
+    hikari:
+      maximum-pool-size: 20
+
+  jpa:
+    open-in-view: false        # don't keep DB connections open while rendering HTTP responses
+    hibernate:
+      ddl-auto: none           # Flyway owns the schema, Hibernate must not change it
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+
+  flyway:
+    enabled: true
+
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASSWORD:guest}
+    publisher-confirm-type: simple   # lets the publisher wait for the broker to confirm each message
+    listener:
+      simple:
+        concurrency: 4               # 4 consumer threads, scaling up to 8 under load
+        max-concurrency: 8
+        prefetch: 20                 # each consumer holds at most 20 unacknowledged messages
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3            # 1 try + 2 retries, then FailedIncidentRecoverer sends it to the DLQ
+          initial-interval: 500ms
+          multiplier: 2.0            # 500ms, then 1s (exponential back-off)
+          max-interval: 5s
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful                 # finish in-flight requests and messages before stopping
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true                # /actuator/health/liveness and /readiness for Docker/Kubernetes
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  webhook:
+    secret: ${WEBHOOK_SECRET:local-dev-secret-change-me}
+  republisher:
+    interval: PT15S                  # how often to look for stuck events
+    stuck-after: PT30S               # RECEIVED for longer than this = never reached RabbitMQ
+    batch-size: 200
+  simulation:
+    dispatch-failure-rate: ${DISPATCH_FAILURE_RATE:0.0}
+
+logging:
+  level:
+    com.ethanho.incidents: INFO
