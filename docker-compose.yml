@@ -15,7 +15,9 @@ services:
     ports:
       - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      # 127.0.0.1 forces a TCP check. "localhost" uses the socket, which also answers during
+      # MySQL's first-start initialisation, so the app could start before MySQL is really ready.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -36,6 +38,7 @@ services:
 
   app:
     build: .
+    restart: on-failure   # retry if a dependency was not quite ready
     depends_on:
       mysql:
         condition: service_healthy
